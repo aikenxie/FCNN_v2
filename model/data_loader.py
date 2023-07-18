@@ -37,7 +37,7 @@ class METDataset(Dataset):
     @property
     def existing_pt_names(self):
         if not hasattr(self,'pt_files'):
-            self.pt_files = sorted(glob.glob(self.processed_dir+'/*file*slice*nevent*pt'))
+            self.pt_files = sorted(glob.glob(self.processed_dir+'/*slice*nevent*pt'))
         return [f.split('/')[-1] for f in self.pt_files]
     
     @property

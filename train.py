@@ -23,9 +23,9 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--restore_file', default=None,
                     help="Optional, name of the file in --model_dir containing weights to reload before \
                     training")  # 'best' or 'train'
-parser.add_argument('--data', default='/hildafs/projects/phy230010p/share/Znunu100to200processed',
+parser.add_argument('--data', default='/export/home/phys/yiqunx/FCNN_data',
                     help="Name of the data folder")
-parser.add_argument('--ckpts', default='/hildafs/projects/phy230010p/xiea/checkpoints/FCNN_v2',
+parser.add_argument('--ckpts', default='/export/home/phys/yiqunx/checkpoints/FCNN_v2',
                     help="Name of the ckpts folder")
 
 
@@ -64,18 +64,19 @@ def train(model, device, optimizer, scheduler, loss_fn, dataloader, epoch):
     return np.mean(loss_avg_arr)
 
 if __name__ == '__main__':
+    print('loading data')
     args = parser.parse_args()
     dataloaders = data_loader.fetch_dataloader(data_dir=args.data, 
                                                batch_size=6,
                                                validation_split=.2)
+    
     train_dl = dataloaders['train']
     test_dl = dataloaders['test']
-
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu') 
-
+    print(f"data loaded, creating model and sending to device {device}")
     model = net.FCNN_MET(continuous_dim=8, categorical_dim=3).to(device) #include puppi
     #model = net.Net(7, 3).to(device) #remove puppi
-
+    print("model created")
     optimizer = torch.optim.AdamW(model.parameters(),lr=0.001)
 
     #need to figure out the call back thing in FCNN_v1

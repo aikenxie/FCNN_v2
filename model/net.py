@@ -54,8 +54,7 @@ class FCNN_MET(nn.Module):
         
 
     def forward(self,X_cont,X_cat):
-        #embedd the categorical features
-        
+        #embedd the categorical features        
         pdg_remapped = X_cat[:,0]
         for i, (k,v) in enumerate(self.pdgmap.items()):
             pdg_remapped = torch.where(pdg_remapped == k, torch.full_like(pdg_remapped, v), pdg_remapped)
