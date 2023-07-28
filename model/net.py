@@ -7,6 +7,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch_scatter import scatter_add
 from model.weighted_sum_layer import Weighted_Sum_Layer
+import time
 
 class FCNN_MET(nn.Module):
     def __init__ (self, continuous_dim=8, categorical_dim=3, output_dim=1, hidden_dim=32, withbias=False):
@@ -52,9 +53,11 @@ class FCNN_MET(nn.Module):
 
         self.pdgmap = {-211.0: 0, -13.0: 1, -11.0: 2, 0.0: 3, 1.0: 4, 2.0: 5, 11.0: 6, 13.0: 7, 22.0: 8, 130.0: 9, 211.0: 10}
         
-
+    #def forward(self,X_cont,X_cat,timings):
     def forward(self,X_cont,X_cat):
-        #embedd the categorical features        
+        #embedd the categorical features
+        #embedding_start_t = time.perf_counter_ns()        
+        
         pdg_remapped = X_cat[:,0]
         for i, (k,v) in enumerate(self.pdgmap.items()):
             pdg_remapped = torch.where(pdg_remapped == k, torch.full_like(pdg_remapped, v), pdg_remapped)
@@ -62,12 +65,17 @@ class FCNN_MET(nn.Module):
         embedded_pdgId = self.pdgid_embedding(pdg_remapped)
         embedded_charge = self.charge_embedding(X_cat[:,1]+1)
         embedded_pv = self.pdgid_embedding(X_cat[:,2])
-
+        #embedding_end_t = time.perf_counter_ns()
         #concatenate continous with categorical features
+        #cat_start_t = time.perf_counter_ns()
         X = torch.cat([X_cont,embedded_pdgId,embedded_charge,embedded_pv],dim=1)
+        #cat_end_t = time.perf_counter_ns()
         
         #Feed through the 3 dense layers
+
+        #dense_start_t = time.perf_counter_ns()
         X = self.dense_stack(X) 
+        #dense_end_t = time.perf_counter_ns()
         '''
         #Compile weights and momentum in xy
         pX = X_cont[:,0]
@@ -80,8 +88,21 @@ class FCNN_MET(nn.Module):
         #put through weighted sum layer to extract MET
         out = self.weighted_sum_layer(X)
         '''
+        #sigmoid_start_t = time.perf_counter_ns()
         weights = torch.sigmoid(X)
+        #sigmoid_end_t = time.perf_counter_ns()
+
+        #flatten_start_t = time.perf_counter_ns()
         weights = torch.flatten(weights)
+        #flatten_end_t = time.perf_counter_ns()
+        '''
+        timings["EMB"].append(embedding_end_t-embedding_start_t)
+        timings["CAT"].append(cat_end_t - cat_start_t)
+        timings["DENSE"].append(dense_end_t - dense_start_t)
+        timings["SIG"].append(sigmoid_end_t - sigmoid_start_t)
+        timings["FLAT"].append(flatten_end_t - flatten_start_t)
+        '''
+
         return weights 
 
         
@@ -95,7 +116,7 @@ def scalermul(a,v):
 
 def u_perp_par_loss(weights, prediction, truth, batch):
     qTx=truth[:,0]#*torch.cos(truth[:,1])
-    qTy=truth[:,0]#*torch.sin(truth[:,1])
+    qTy=truth[:,1]#*torch.sin(truth[:,1])
     # truth qT
     v_qT=torch.stack((qTx,qTy),dim=1)
 
@@ -162,9 +183,9 @@ def resolution(weights, prediction, truth, batch):
     def compute(vector):
         response = getdot(vector,v_qT)/getdot(v_qT,v_qT)
         v_paral_predict = scalermul(response, v_qT)
-        u_paral_predict = getscale(v_paral_predict)-getscale(v_qT)
-        v_perp_predict = vector - v_paral_predict
-        u_perp_predict = getscale(v_perp_predict)
+        u_paral_predict = getscale(v_paral_predict)-getscale(v_qT) #resolution parallel
+        v_perp_predict = vector - v_paral_predict 
+        u_perp_predict = getscale(v_perp_predict) #resolution perpendicular
         return [u_perp_predict.cpu().detach().numpy(), u_paral_predict.cpu().detach().numpy(), response.cpu().detach().numpy()]
 
     resolutions= {

@@ -15,7 +15,7 @@ from torch.utils.data import random_split
 from torch_geometric.utils import is_undirected, to_undirected
 from torch_geometric.data import (Data, Dataset)
 import torch_geometric.transforms as T
-from torch_geometric.data import DataLoader
+from torch_geometric.loader import DataLoader
 from torch.utils.data.sampler import SubsetRandomSampler
 
 class METDataset(Dataset):
@@ -37,7 +37,7 @@ class METDataset(Dataset):
     @property
     def existing_pt_names(self):
         if not hasattr(self,'pt_files'):
-            self.pt_files = sorted(glob.glob(self.processed_dir+'/*slice*nevent*pt'))
+            self.pt_files = sorted(glob.glob(self.processed_dir+'/*.pt'))
         return [f.split('/')[-1] for f in self.pt_files]
     
     @property
@@ -91,6 +91,7 @@ class METDataset(Dataset):
 
 def fetch_dataloader(data_dir, batch_size, validation_split):
     dataset = METDataset(data_dir)
+    #dataset.process()
     #print(dataset)
     dataset_size = len(dataset)
     indices = list(range(dataset_size))
@@ -103,8 +104,8 @@ def fetch_dataloader(data_dir, batch_size, validation_split):
 #                                                             generator=torch.Generator().manual_seed(random_seed))
     print('length of train/val data: ', len(train_subset), len(val_subset))
     dataloaders = {
-        'train':  DataLoader(train_subset, batch_size=batch_size, shuffle=False),
-        'test':   DataLoader(val_subset, batch_size=batch_size, shuffle=False)
+        'train':  DataLoader(train_subset, batch_size=batch_size,num_workers=4, shuffle=False),
+        'test':   DataLoader(val_subset, batch_size=batch_size,num_workers=4, shuffle=True)
         }
     return dataloaders
 
