@@ -7,7 +7,6 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from torch_geometric.data import DataLoader
 from tqdm import tqdm
 import argparse
 import utils
@@ -26,10 +25,11 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--restore_file', default=None,
                     help="Optional, name of the file in --model_dir containing weights to reload before \
                     training")  # 'best' or 'train'
-parser.add_argument('--data', default='/export/home/phys/yiqunx/FCNN_data',
+parser.add_argument('--data', default='/hildafs/projects/phy230010p/xiea/npzs/FCNN_data',
                     help="Name of the data folder")
-parser.add_argument('--ckpts', default='/export/home/phys/yiqunx/checkpoints/FCNN_train3',
+parser.add_argument('--ckpts', default='/hildafs/projects/phy230010p/xiea/checkpoints/FCNN_train8',
                     help="Name of the ckpts folder")
+
 
 
 def train(model, device, optimizer, scheduler, loss_fn, dataloader, epoch):
@@ -93,8 +93,6 @@ def train(model, device, optimizer, scheduler, loss_fn, dataloader, epoch):
             print("model inference avg:",np.mean(timings['MI']))
             print("event avg:",np.mean(timings['ERT']))
             '''
-            with torch.cuda.device(device):
-                torch.cuda.empty_cache()
 
     scheduler.step(np.mean(loss_avg_arr))
     print('Training epoch: {:02d}, MSE: {:.4f}'.format(epoch, np.mean(loss_avg_arr)))
@@ -104,15 +102,20 @@ def train(model, device, optimizer, scheduler, loss_fn, dataloader, epoch):
     return np.mean(loss_avg_arr)
 
 if __name__ == '__main__':
-    print('loading data')
     args = parser.parse_args()
+    print("checkpoint dir:",args.ckpts)
+    print("data dir:",args.data)
+    print("restore file:",args.restore_file)
+    loss_fn = loss.response_correction_loss
+    print("loss function:",loss_fn)
+    print('loading data')
     dataloaders = data_loader.fetch_dataloader(data_dir=args.data, 
-                                               batch_size=128,
+                                               batch_size=64,
                                                validation_split=.3)
     
     train_dl = dataloaders['train']
     test_dl = dataloaders['test']
-    device = torch.device('cuda:1' if torch.cuda.is_available() else 'cpu')
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
     pdg_map = {-211.0: 0, -13.0: 1, -11.0: 2, 0.0: 3, 1.0: 4, 2.0: 5, 11.0: 6, 13.0: 7, 22.0: 8, 130.0: 9, 211.0: 10}
             
@@ -129,7 +132,8 @@ if __name__ == '__main__':
 
     first_epoch = 0
     best_validation_loss = 10e7
-    loss_fn = loss.custom_loss
+    #loss_fn = loss.standard_loss
+    
     metrics = net.metrics
 
     model_dir = args.ckpts
